@@ -9,6 +9,9 @@ phases/**/phase*-output.json
 phases/**/step*-output.json
 phases/**/step*-result.json
 
+# tool logs (e.g. MCP servers write logs/ into the working directory)
+logs/
+
 # python
 __pycache__/
 *.pyc

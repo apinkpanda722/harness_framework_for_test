@@ -319,6 +319,7 @@ class StepExecutor:
             print(f"\n  WARN: Codex가 비정상 종료됨 (code {exit_code})")
         try:
             result = self._read_json(result_file)
+            result_file.unlink()  # 내용은 index.json 에 옮겨 적으므로 파일은 남기지 않는다
         except (FileNotFoundError, json.JSONDecodeError):
             tail = (stderr or stdout)[-1000:]
             return {"status": "error", "reason": f"결과 JSON을 받지 못함 (exit {exit_code}): {tail}", "usage": usage}
@@ -396,7 +397,7 @@ class StepExecutor:
                     verify_error = self._verify()
                     if verify_error:
                         status, reason = "error", verify_error
-                elapsed = int(pi.elapsed)
+            elapsed = int(pi.elapsed)  # finally 에서 채워지므로 with 블록 밖에서 읽는다
 
             for k in total_usage:
                 total_usage[k] += result.get("usage", {}).get(k, 0)
