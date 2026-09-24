@@ -19,10 +19,10 @@
 설계 원칙:
 
 1. **Scope 최소화** — 하나의 step에서 하나의 레이어 또는 모듈만 다룬다. 여러 모듈을 동시에 수정해야 하면 step을 쪼갠다.
-2. **자기완결성** — 각 step 파일은 독립된 Claude 세션에서 실행된다. "이전 대화에서 논의한 바와 같이" 같은 외부 참조는 금지한다. 필요한 정보는 전부 파일 안에 적는다.
+2. **자기완결성** — 각 step 파일은 독립된 Codex 세션(`codex exec`)에서 실행된다. "이전 대화에서 논의한 바와 같이" 같은 외부 참조는 금지한다. 필요한 정보는 전부 파일 안에 적는다.
 3. **사전 준비 강제** — 관련 문서 경로와 이전 step에서 생성/수정된 파일 경로를 명시한다. 세션이 코드를 읽고 맥락을 파악한 뒤 작업하도록 유도한다.
 4. **시그니처 수준 지시** — 함수/클래스의 인터페이스만 제시하고 내부 구현은 에이전트 재량에 맡긴다. 단, 설계 의도에서 벗어나면 안 되는 핵심 규칙(멱등성, 보안, 데이터 무결성 등)은 반드시 명시한다.
-5. **AC는 실행 가능한 커맨드** — "~가 동작해야 한다" 같은 추상적 서술이 아닌 `npm run build && npm test` 같은 실제 실행 가능한 검증 커맨드를 포함한다.
+5. **AC는 실행 가능한 커맨드** — "~가 동작해야 한다" 같은 추상적 서술이 아닌 `make verify` 같은 실제 실행 가능한 검증 커맨드를 포함한다. execute.py는 에이전트가 완료를 보고해도 `make verify`를 직접 다시 돌려 통과해야만 완료로 기록한다.
 6. **주의사항은 구체적으로** — "조심해라" 대신 "X를 하지 마라. 이유: Y" 형식으로 적는다.
 7. **네이밍** — step name은 kebab-case slug로, 해당 step의 핵심 모듈/작업을 한두 단어로 표현한다 (예: `project-setup`, `api-layer`, `auth-flow`).
 
@@ -65,7 +65,7 @@
 
 필드 규칙:
 
-- `project`: 프로젝트명 (CLAUDE.md 참조).
+- `project`: 프로젝트명 (AGENTS.md 참조).
 - `phase`: task 이름. 디렉토리명과 일치시킨다.
 - `steps[].step`: 0부터 시작하는 순번.
 - `steps[].name`: kebab-case slug.
@@ -75,9 +75,11 @@
 
 | 전이 | 기록되는 필드 | 기록 주체 |
 |------|-------------|----------|
-| → `completed` | `completed_at`, `summary` | Claude 세션 (summary), execute.py (timestamp) |
-| → `error` | `failed_at`, `error_message` | Claude 세션 (message), execute.py (timestamp) |
-| → `blocked` | `blocked_at`, `blocked_reason` | Claude 세션 (reason), execute.py (timestamp) |
+| → `completed` | `completed_at`, `summary`, `usage` | Codex 최종 응답 (summary), execute.py (나머지) |
+| → `error` | `failed_at`, `error_message`, `usage` | Codex 최종 응답 또는 `make verify` 출력 (message), execute.py (나머지) |
+| → `blocked` | `blocked_at`, `blocked_reason`, `usage` | Codex 최종 응답 (reason), execute.py (나머지) |
+
+index.json은 execute.py만 수정한다. Codex는 `scripts/step-result.schema.json` 형식(`status`, `summary`, `reason`)의 최종 응답만 돌려준다. `usage`는 해당 step의 누적 토큰 사용량과 시도 횟수다.
 
 `summary`는 step 완료 시 산출물을 한 줄로 요약한 것으로, execute.py가 다음 step 프롬프트에 컨텍스트로 누적 전달한다. 따라서 다음 step에 유용한 정보(생성된 파일, 핵심 결정 등)를 담아야 한다.
 
@@ -107,8 +109,7 @@
 ## Acceptance Criteria
 
 ```bash
-npm run build   # 컴파일 에러 없음
-npm test        # 테스트 통과
+make verify   # lint + test 통과
 ```
 
 ## 검증 절차
@@ -117,11 +118,11 @@ npm test        # 테스트 통과
 2. 아키텍처 체크리스트를 확인한다:
    - ARCHITECTURE.md 디렉토리 구조를 따르는가?
    - ADR 기술 스택을 벗어나지 않았는가?
-   - CLAUDE.md CRITICAL 규칙을 위반하지 않았는가?
-3. 결과에 따라 `phases/{task-name}/index.json`의 해당 step을 업데이트한다:
+   - AGENTS.md CRITICAL 규칙을 위반하지 않았는가?
+3. 결과를 최종 응답(JSON)으로 보고한다. `phases/` 아래 파일은 수정하지 않고 git commit도 하지 않는다:
    - 성공 → `"status": "completed"`, `"summary": "산출물 한 줄 요약"`
-   - 수정 3회 시도 후에도 실패 → `"status": "error"`, `"error_message": "구체적 에러 내용"`
-   - 사용자 개입 필요 (API 키, 외부 인증, 수동 설정 등) → `"status": "blocked"`, `"blocked_reason": "구체적 사유"` 후 즉시 중단
+   - 해결할 수 없는 실패 → `"status": "error"`, `"reason": "구체적 에러 내용"`
+   - 사용자 개입 필요 (API 키, 외부 인증, 수동 설정 등) → `"status": "blocked"`, `"reason": "구체적 사유"` 후 즉시 중단
 
 ## 금지사항
 
@@ -131,21 +132,25 @@ npm test        # 테스트 통과
 
 ### E. 실행
 
+실행 전에 phase 파일(`phases/`) 외의 변경사항은 모두 커밋해 둔다. 작업 트리가 깨끗하지 않으면 execute.py가 시작하지 않는다.
+
 ```bash
-python3 scripts/execute.py {task-name}        # 순차 실행
-python3 scripts/execute.py {task-name} --push  # 실행 후 push
+python3 scripts/execute.py {task-name}            # 순차 실행
+python3 scripts/execute.py {task-name} --steps 2  # 2개 step만 실행하고 멈춤 (리뷰 단위로 끊어 진행)
+python3 scripts/execute.py {task-name} --push     # 실행 후 push
 ```
 
 execute.py가 자동으로 처리하는 것:
 
-- `feat-{task-name}` 브랜치 생성/checkout
-- 가드레일 주입 — CLAUDE.md + docs/*.md 내용을 매 step 프롬프트에 포함
+- `feature/{task-name}` 브랜치 생성/checkout
+- Codex 실행 — `codex exec --sandbox workspace-write`로 step마다 새 세션을 띄운다. 워크스페이스 밖 쓰기는 OS 샌드박스가 막고, 의존성 설치를 위해 네트워크만 연다. 프로젝트 규칙(AGENTS.md)은 Codex가 자동으로 읽는다.
 - 컨텍스트 누적 — 완료된 step의 summary를 다음 step 프롬프트에 전달
+- 독립 검증 — 에이전트가 완료를 보고하면 `make verify`를 직접 실행하고, 실패하면 그 출력을 에러로 삼아 재시도
 - 자가 교정 — 실패 시 최대 3회 재시도하며, 이전 에러 메시지를 프롬프트에 피드백
-- 2단계 커밋 — 코드 변경(`feat`)과 메타데이터(`chore`)를 분리 커밋
-- 타임스탬프 — started_at, completed_at, failed_at, blocked_at 자동 기록
+- 커밋 — 코드 변경(`feat`)과 메타데이터(`chore`)를 분리 커밋. 실패/차단된 step의 코드는 커밋하지 않고 작업 트리에 남긴다
+- 기록 — started_at, completed_at, failed_at, blocked_at 타임스탬프와 step별 토큰 사용량(`usage`)
 
 에러 복구:
 
-- **error 발생 시**: `phases/{task-name}/index.json`에서 해당 step의 `status`를 `"pending"`으로 바꾸고 `error_message`를 삭제한 뒤 재실행한다.
-- **blocked 발생 시**: `blocked_reason`에 적힌 사유를 해결한 뒤, `status`를 `"pending"`으로 바꾸고 `blocked_reason`을 삭제한 뒤 재실행한다.
+- **error 발생 시**: 작업 트리에 남은 코드를 검토해 커밋하거나 stash한다. `phases/{task-name}/index.json`에서 해당 step의 `status`를 `"pending"`으로 바꾸고 `error_message`를 삭제한 뒤 재실행한다.
+- **blocked 발생 시**: `blocked_reason`에 적힌 사유를 해결하고 작업 트리를 정리한 뒤, `status`를 `"pending"`으로 바꾸고 `blocked_reason`을 삭제한 뒤 재실행한다.

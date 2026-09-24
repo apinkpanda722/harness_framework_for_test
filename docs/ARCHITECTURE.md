@@ -2,23 +2,24 @@
 
 ## 디렉토리 구조
 ```
-src/
-├── app/               # 페이지 + API 라우트
-├── components/        # UI 컴포넌트
-├── types/             # TypeScript 타입 정의
-├── lib/               # 유틸리티 + 헬퍼
-└── services/          # 외부 API 래퍼
+{예:
+src/{패키지}/     # 도메인 로직
+tests/            # 단위·통합 테스트 (test_*.py)
+eval/             # 평가 스크립트와 golden set
+docs/             # PRD, ARCHITECTURE, ADR, EVAL
+scripts/          # 하네스 실행기와 hook
+}
 ```
 
 ## 패턴
-{사용하는 디자인 패턴 (예: Server Components 기본, 인터랙션이 필요한 곳만 Client Component)}
+{사용하는 설계 패턴 (예: 검색기는 공통 인터페이스 뒤에 두고 구현을 교체 가능하게)}
 
 ## 데이터 흐름
 ```
 {데이터가 어떻게 흐르는지 (예:
-사용자 입력 → Client Component → API Route → 외부 API → 응답 → UI 업데이트
+질의 → 라우터 → 검색(키워드/벡터) → 재정렬 → 생성 → 응답
 )}
 ```
 
 ## 상태 관리
-{상태 관리 방식 (예: 서버 상태는 Server Components, 클라이언트 상태는 useState/useReducer)}
+{상태와 저장소 (예: 인덱스는 로컬 파일, 설정은 .env)}
