@@ -8,6 +8,7 @@ import os
 import subprocess
 import sys
 import textwrap
+import types
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from unittest.mock import patch, MagicMock
@@ -521,6 +522,7 @@ class TestInvokeCodex:
         assert result["status"] == "completed"
         assert result["summary"] == "done"
         assert result["usage"]["input_tokens"] == 105
+        assert not (executor._phase_dir / "step2-result.json").exists()
 
     def test_saves_output_json(self, executor):
         payload = {"status": "completed", "summary": "done", "reason": None}
@@ -600,6 +602,16 @@ class TestExecuteSingleStep:
         assert s["status"] == "completed"
         assert s["summary"] == "UI 완료"
         assert s["usage"] == {"input_tokens": 10, "cached_input_tokens": 0, "output_tokens": 1, "attempts": 1}
+
+    def test_elapsed_is_measured(self, executor, capsys):
+        self._wire(executor, [self._res("completed", "UI 완료")])
+        with patch.object(ex, "progress_indicator") as pi:
+            pi.return_value.__enter__.return_value = types.SimpleNamespace(elapsed=0.0)
+            def set_elapsed(*a):
+                pi.return_value.__enter__.return_value.elapsed = 42.0
+            pi.return_value.__exit__.side_effect = set_elapsed
+            executor._execute_single_step({"step": 2, "name": "ui"})
+        assert "[42s]" in capsys.readouterr().out
         executor._commit_code.assert_called_once_with(2, "ui")
         executor._commit_meta.assert_called_once_with(2, "completed")
 
