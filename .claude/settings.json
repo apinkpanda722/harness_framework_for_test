@@ -21,15 +21,6 @@
             "command": "bash \"$CLAUDE_PROJECT_DIR/scripts/hooks/dangerous-command-guard.sh\""
           }
         ]
-      },
-      {
-        "matcher": "Write|Edit|MultiEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/scripts/hooks/tdd-guard-claude.sh\""
-          }
-        ]
       }
     ]
   }

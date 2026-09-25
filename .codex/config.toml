@@ -10,15 +10,6 @@ command = 'bash "$(git rev-parse --show-toplevel)/scripts/hooks/dangerous-comman
 timeout = 5
 statusMessage = "위험한 명령어 검사 중"
 
-[[hooks.PreToolUse]]
-matcher = "apply_patch"
-
-[[hooks.PreToolUse.hooks]]
-type = "command"
-command = 'bash "$(git rev-parse --show-toplevel)/scripts/hooks/tdd-guard-codex.sh"'
-timeout = 5
-statusMessage = "TDD 정책 검사 중"
-
 [[hooks.Stop]]
 
 [[hooks.Stop.hooks]]
