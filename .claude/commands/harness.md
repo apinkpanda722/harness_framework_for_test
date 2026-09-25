@@ -4,6 +4,18 @@
 
 ## 워크플로우
 
+### 0. 프로젝트 셋업 (최초 1회)
+
+하네스는 작업 방식(실행기, hook, 커맨드, 빈 골격 문서)만 제공하고 스택·도메인에 따라 달라지는 것은 제공하지 않는다. 첫 phase를 설계하기 전에 사용자와 함께 아래를 정하고 채운다:
+
+1. **스택 골격** — 스택의 공식 도구(`uv init`, `create-next-app` 등)로 만든 골격이 있는지 확인한다. 없으면 골격 생성을 첫 phase의 step 0으로 둔다.
+2. **`make verify`** — `Makefile`의 `verify` 타깃을 스택에 맞는 lint / typecheck / test로 채운다. Stop hook과 execute.py가 이 명령으로 완료를 판정한다. 골격 생성이 step 0이면 그 step에서 채운다.
+3. **`AGENTS.md`** — 기술 스택, CRITICAL 규칙, 명령어를 채운다.
+4. **`/docs/`** — PRD, ARCHITECTURE, ADR을 채우고 프로젝트 성격에 맞는 기준 문서를 추가한다. 예: UI가 있으면 UI 가이드, AI·검색 기능이 있으면 평가 문서(지표, golden set, 결과 기록 규칙).
+5. **프로젝트 전용 hook (선택)** — 언어별 TDD guard처럼 스택에 묶인 hook은 프로젝트의 `scripts/hooks/`에 추가하고 `.claude/settings.json`, `.codex/config.toml`에 등록한다.
+
+셋업 결과는 execute.py 실행 전에 커밋한다. 작업 트리가 깨끗하지 않으면 execute.py가 시작하지 않는다.
+
 ### A. 탐색
 
 `/docs/` 하위 문서(PRD, ARCHITECTURE, ADR 등)를 읽고 프로젝트의 기획·아키텍처·설계 의도를 파악한다. 필요시 Explore 에이전트를 병렬로 사용한다.
